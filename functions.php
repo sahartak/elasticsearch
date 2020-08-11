@@ -24,6 +24,15 @@ function createIndex(Client $client) {
                 'properties' => [
                     'profile_projects' => [
                         'type' => 'nested'
+                    ],
+                    'color' => [
+                        'type' => 'keyword'
+                    ],
+                    'size' => [
+                        'type' => 'keyword'
+                    ],
+                    'favoriteFruit' => [
+                        'type' => 'keyword'
                     ]
                 ]
             ]
@@ -40,6 +49,10 @@ function deleteIndex(Client $client) {
 }
 
 function indexDocument(Client $client, array $data) {
+    $colors = ['Red', 'Blue', 'Green'];
+    $data['color'] = $colors[rand(0, 2)];
+    $sizes = ['s', 'm', 'xl'];
+    $data['size'] = $sizes[rand(0, 2)];
     $params = [
         'index' => 'profile_index',
         'id'    => $data['id'],

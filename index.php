@@ -3,73 +3,39 @@
     use Elasticsearch\ClientBuilder;
     require_once 'functions.php';
     $client = ClientBuilder::create()->build();
-    /*
-    $profiles = json_decode(file_get_contents('data.json'), true);
+
+    /*$profiles = json_decode(file_get_contents('data.json'), true);
     deleteIndex($client);
     createIndex($client);
-    indexAllDocuments($client, $profiles);
-    */
+    indexAllDocuments($client, $profiles);*/
 
-    $result = search($client, [
-        'bool' => [
-            'must' => [
-                'nested' => [
-                    'path' => 'profile_projects',
-                    'query' => [
-                        'constant_score' => [
-                            'filter' => [
-                                'bool' => [
-                                    'should' => [
-                                        [
-                                            'bool' => [
-                                                'must' => [
-                                                    ['term' => ['profile_projects.project_id' => 11]],
-                                                    ['term' => ['profile_projects.role_id' => 6]],
-                                                ]
-                                            ]
-                                        ],
-                                        [
-                                            'bool' => [
-                                                'must' => [
-                                                    ['term' => ['profile_projects.project_id' => 2]],
-                                                    ['term' => ['profile_projects.role_id' => 5]],
-                                                ]
-                                            ]
-                                        ],
 
-                                    ],
-                                ]
-                            ]
-                        ]
-                    ]
-                ]
-            ],
-            'must_not' => [
-                'nested' => [
-                    'path' => 'profile_projects',
-                    'query' => [
-                        'constant_score' => [
-                            'filter' => [
-                                'bool' => [
-                                    'should' => [
-                                        [
-                                            'bool' => [
-                                                'must' => [
-                                                    ['term' => ['profile_projects.project_id' => 8]],
-                                                    ['term' => ['profile_projects.role_id' => 7]],
-                                                ]
-                                            ]
-                                        ],
-                                        [
-                                            'bool' => [
-                                                'must' => [
-                                                    ['term' => ['profile_projects.project_id' => 15]],
-                                                    ['term' => ['profile_projects.role_id' => 5]],
-                                                ]
-                                            ]
-                                        ],
-                                    ],
-                                ]
+
+    $fields = ['size', 'color', 'favoriteFruit'];
+
+    $elements = [];
+    foreach ($fields as $field) {
+        $elements[] = "doc['{$field}'].value";
+    }
+
+    $delimiter = ' | ';
+    $script = 'return '.implode(" + '$delimiter' + ", $elements).';';
+
+    $result = $client->search([
+        'index' => 'profile_index',
+        'body' => [
+            'size' => 0,
+            'aggs' => [
+                'duplicates' => [
+                    'terms' => [
+                        'script' => $script,
+                        'size' => 1000,
+                        'min_doc_count' => 2,
+                    ],
+                    'aggs' => [
+                        'profiles' => [
+                            'top_hits' => [
+                                'size' => 100,
                             ]
                         ]
                     ]
@@ -77,6 +43,49 @@
             ]
         ]
     ]);
+
+    foreach ($result['aggregations']['duplicates']['buckets'] as $bucket) {
+        $fieldValues = explode($delimiter, $bucket['key']);
+        $fieldValues = array_combine($fields, $fieldValues);
+        $duplicatesCount = $bucket['doc_count'];
+        print_r($fieldValues);
+
+        $secondaryProfiles = $bucket['profiles']['hits']['hits'];
+        $primaryProfile = array_shift($secondaryProfiles);
+        foreach ($secondaryProfiles as $secondaryProfile) {
+            print_r($secondaryProfile['_source']);
+        }
+    }
+die;
+    /*$result = $client->search([
+        'index' => 'profile_index',
+        'body' => [
+            'aggs' => [
+                'size_count' => [
+                    'terms' => [
+                        'field' => 'size',
+                    ],
+                    'aggs' => [
+                        'color_count' => [
+                            'terms' => [
+                                'field' => 'color',
+                            ],
+                            'aggs' => [
+                                'favorite_count' => [
+                                    'terms' => [
+                                        'field' => 'favoriteFruit',
+                                    ],
+                                ]
+                            ]
+                        ],
+
+                    ]
+                ]
+            ]
+        ]
+
+    ]);*/
+
 
     dd($result);
 
